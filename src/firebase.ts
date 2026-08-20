@@ -14,6 +14,7 @@ import {
   writeBatch,
   onSnapshot,
   Firestore,
+  getDocFromServer,
 } from "firebase/firestore";
 import firebaseConfig from "../firebase-applet-config.json";
 import {
@@ -149,6 +150,18 @@ export const db: Firestore = (() => {
   }
 })();
 export const auth = getAuth(app);
+
+// Connection Validation
+async function testConnection() {
+  try {
+    await getDocFromServer(doc(db, "test", "connection"));
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("the client is offline")) {
+      console.warn("Please check your Firebase configuration or internet connection.");
+    }
+  }
+}
+testConnection();
 
 // Error Handling Definition matching Firebase Skill specifications
 export enum OperationType {

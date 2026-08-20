@@ -69,25 +69,12 @@ export default function App() {
     }, 2500);
 
     const unsubAdmin = subscribeToFirebaseAdminData((remoteAdminData) => {
-      setAdminData((prev) => {
-        const hasRemoteData =
-          (remoteAdminData.products && remoteAdminData.products.length > 0) ||
-          (remoteAdminData.categories && remoteAdminData.categories.length > 0) ||
-          (remoteAdminData.banners && remoteAdminData.banners.length > 0);
-
-        if (hasRemoteData) {
-          localStorage.setItem(STORAGE_KEYS.ADMIN_DATA, JSON.stringify(remoteAdminData));
-          return remoteAdminData;
-        }
-
-        if (prev.products && prev.products.length > 0) {
-          saveAdminDataToFirebase(prev).catch((e) => console.warn("Background sync from local on boot:", e));
-          return prev;
-        }
-
+      setAdminData(remoteAdminData);
+      try {
         localStorage.setItem(STORAGE_KEYS.ADMIN_DATA, JSON.stringify(remoteAdminData));
-        return remoteAdminData;
-      });
+      } catch (e) {
+        console.warn("Storage sync error:", e);
+      }
       setIsInitialLoading(false);
     });
 

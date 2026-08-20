@@ -1,12 +1,13 @@
 {
-  "projectId": "ai-studio-applet-webapp-b8dd5",
-  "appId": "1:719731210000:web:41a4b56065561b50881795",
-  "apiKey": "AIzaSyCan70ZKNGyhgdWtmz7xkjZiGLPdm8QUu0",
-  "authDomain": "ai-studio-applet-webapp-b8dd5.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-81e28df0-3fbb-418d-9d7e-600607110104",
-  "storageBucket": "ai-studio-applet-webapp-b8dd5.firebasestorage.app",
-  "messagingSenderId": "719731210000",
+  "projectId": "sotra-45262",
+  "appId": "1:472077944879:web:4c4d35e1c3f9b62d261eda",
+  "apiKey": "AIzaSyBE6ZxUtxJB4XmO0jZTNmum1bwn8Gh0-AE",
+  "authDomain": "sotra-45262.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "sotra-45262.firebasestorage.app",
+  "messagingSenderId": "472077944879",
+  "databaseURL": "https://sotra-45262-default-rtdb.firebaseio.com",
   "measurementId": "",
-  "oAuthClientId": "719731210000-h6ker7nc03e64p0i9vtidolll4c6evk4.apps.googleusercontent.com",
+  "oAuthClientId": "",
   "recaptchaSiteKey": ""
 }
