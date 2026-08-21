@@ -291,15 +291,22 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
   // ORDER STATUS CHANGE & SYNCHRONIZATION
   const handleUpdateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
-    const res = updateOrderStatus(orderId, newStatus);
-    if (res.success) {
+    const res = updateOrderStatus(orderId, newStatus, orders);
+    if (res.success && res.updatedOrders.length > 0) {
       onUpdateOrders(res.updatedOrders);
-      showToast(
-        newStatus === "cancelled"
-          ? "تم إلغاء الطلب وإرجاع المنتجات للمخزون"
-          : `تم تحديث حالة الطلب إلى: ${ORDER_STATUS_FLOW.find((s) => s.status === newStatus)?.labelAr || newStatus}`
+    } else {
+      const fallbackList = orders.map((o) =>
+        o.orderId === orderId ? { ...o, trackingStatus: newStatus, updatedAt: new Date().toISOString() } : o
       );
+      onUpdateOrders(fallbackList);
     }
+
+    const statusObj = ORDER_STATUS_FLOW.find((s) => s.status === newStatus);
+    showToast(
+      newStatus === "cancelled"
+        ? "تم إلغاء الطلب وإرجاع المنتجات للمخزون"
+        : `تم تحديث حالة الطلب إلى: ${statusObj?.labelAr || newStatus}`
+    );
   };
 
   return (
@@ -421,9 +428,9 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                         const q = ordersSearch.toLowerCase();
                         const matchesSearch =
                           !q ||
-                          o.orderId.toLowerCase().includes(q) ||
-                          o.customer.fullName.toLowerCase().includes(q) ||
-                          o.customer.phoneNumber.includes(q) ||
+                          (o.orderId && o.orderId.toLowerCase().includes(q)) ||
+                          (o.customer?.fullName && o.customer.fullName.toLowerCase().includes(q)) ||
+                          (o.customer?.phoneNumber && o.customer.phoneNumber.includes(q)) ||
                           (o.vodafoneSenderPhone && o.vodafoneSenderPhone.includes(q)) ||
                           (o.shippingTransferNumber && o.shippingTransferNumber.includes(q));
                         return matchesFilter && matchesSearch;
@@ -457,12 +464,12 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                                 <div className="flex items-center gap-3 text-xs text-neutral-700 font-bold flex-wrap">
                                   <span className="flex items-center gap-1">
                                     <Phone className="w-3.5 h-3.5 text-neutral-400" />
-                                    {o.customer.fullName} ({o.customer.phoneNumber})
+                                    {o.customer?.fullName || "عميل"} ({o.customer?.phoneNumber || "بدون هاتف"})
                                   </span>
                                   <span>•</span>
                                   <span className="flex items-center gap-1">
                                     <MapPin className="w-3.5 h-3.5 text-neutral-400" />
-                                    {o.governorateNameAr} - {o.customer.detailedAddress}
+                                    {o.governorateNameAr || ""} - {o.customer?.detailedAddress || ""}
                                   </span>
                                 </div>
 
@@ -494,12 +501,11 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                                     onChange={(e) => handleUpdateOrderStatus(o.orderId, e.target.value as OrderStatus)}
                                     className="px-3 py-2 text-xs font-bold rounded-xl border border-neutral-300 bg-neutral-50 hover:bg-white focus:border-neutral-950 outline-none cursor-pointer transition-colors"
                                   >
-                                    <option value="pending_payment">1. بانتظار الدفع (Pending Payment)</option>
-                                    <option value="payment_confirmed">2. تأكيد الدفع (Payment Confirmed)</option>
-                                    <option value="preparing">3. تجهيز الطلب (Preparing)</option>
-                                    <option value="shipped">4. الشحن (Shipped)</option>
-                                    <option value="delivered">5. تم التوصيل (Delivered)</option>
-                                    <option value="cancelled">🚫 ملغي (إرجاع المخزون)</option>
+                                    {ORDER_STATUS_FLOW.map((s) => (
+                                      <option key={s.status} value={s.status}>
+                                        {s.labelAr}
+                                      </option>
+                                    ))}
                                   </select>
                                 </div>
                               </div>
@@ -507,23 +513,23 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
                             {/* Order Items */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                              {o.items.map((item, idx) => (
+                              {(o.items || []).map((item, idx) => (
                                 <div
                                   key={idx}
                                   className="flex items-center gap-2.5 p-2 bg-neutral-50 rounded-xl border border-neutral-200/80 text-xs"
                                 >
                                   <img
-                                    src={item.selectedColor.image || SOTRA_PRODUCT_PLACEHOLDER}
-                                    alt={item.titleAr}
+                                    src={item?.selectedColor?.image || SOTRA_PRODUCT_PLACEHOLDER}
+                                    alt={item?.titleAr || item?.title || "Product"}
                                     className="w-10 h-12 object-cover rounded-lg bg-neutral-200 flex-shrink-0"
                                   />
                                   <div className="min-w-0 flex-1">
-                                    <p className="font-bold text-neutral-900 truncate">{item.titleAr}</p>
+                                    <p className="font-bold text-neutral-900 truncate">{item?.titleAr || item?.title}</p>
                                     <p className="text-[11px] text-neutral-500">
-                                      {item.selectedColor.nameAr} | مقاس: <span className="font-bold">{item.selectedSize}</span> | عدد: <span className="font-bold">{item.quantity}</span>
+                                      {item?.selectedColor?.nameAr || item?.selectedColor?.name || ""} | مقاس: <span className="font-bold">{item?.selectedSize}</span> | عدد: <span className="font-bold">{item?.quantity}</span>
                                     </p>
                                     <p className="text-[11px] font-bold text-neutral-900 font-brand">
-                                      LE {((Number(item.price) || 0) * (Number(item.quantity) || 1)).toFixed(2)}
+                                      LE {((Number(item?.price) || 0) * (Number(item?.quantity) || 1)).toFixed(2)}
                                     </p>
                                   </div>
                                 </div>
@@ -1216,8 +1222,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       }}
                       className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-300 outline-none focus:border-neutral-950 cursor-pointer"
                     >
-                      {BADGE_OPTIONS.map((b) => (
-                        <option key={b.type} value={b.type}>
+                      {BADGE_OPTIONS.map((b, bIdx) => (
+                        <option key={b.type || `badge-${bIdx}`} value={b.type}>
                           {b.textAr} {b.text ? `(${b.text})` : ""}
                         </option>
                       ))}

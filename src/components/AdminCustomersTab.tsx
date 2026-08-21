@@ -46,20 +46,20 @@ export const AdminCustomersTab: React.FC<AdminCustomersTabProps> = ({
         const customerMap = new Map<string, SavedCustomer>();
 
         firestoreCustomers.forEach((c) => {
-          if (c.phoneNumber) {
+          if (c && c.phoneNumber) {
             customerMap.set(c.phoneNumber.replace(/\s+/g, ""), c);
           }
         });
 
         // Also cross-reference with orders to ensure 100% data completeness
         orders.forEach((o) => {
-          if (o.customer && o.customer.phoneNumber) {
+          if (o && o.customer && o.customer.phoneNumber) {
             const cleanPhone = o.customer.phoneNumber.replace(/\s+/g, "");
             const existing = customerMap.get(cleanPhone);
             if (!existing) {
               customerMap.set(cleanPhone, {
                 id: cleanPhone,
-                fullName: o.customer.fullName,
+                fullName: o.customer.fullName || "عميل",
                 phoneNumber: cleanPhone,
                 secondaryPhone: o.customer.secondaryPhone,
                 governorateId: o.customer.governorateId,
@@ -67,7 +67,7 @@ export const AdminCustomersTab: React.FC<AdminCustomersTabProps> = ({
                 detailedAddress: o.customer.detailedAddress,
                 notes: o.customer.notes,
                 totalOrdersCount: 1,
-                totalSpent: o.total,
+                totalSpent: o.total || 0,
                 lastOrderDate: o.createdAt,
                 createdAt: o.createdAt,
                 orders: [o.orderId],
@@ -114,11 +114,19 @@ export const AdminCustomersTab: React.FC<AdminCustomersTabProps> = ({
 
   // Filter customers
   const filteredCustomers = customers.filter((c) => {
+    if (!c) return false;
+    const name = (c.fullName || "").toLowerCase();
+    const phone = c.phoneNumber || "";
+    const secPhone = c.secondaryPhone || "";
+    const addr = (c.detailedAddress || "").toLowerCase();
+    const q = searchQuery.toLowerCase();
+
     const matchesSearch =
-      c.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.phoneNumber.includes(searchQuery) ||
-      (c.secondaryPhone && c.secondaryPhone.includes(searchQuery)) ||
-      (c.detailedAddress && c.detailedAddress.toLowerCase().includes(searchQuery.toLowerCase()));
+      !q ||
+      name.includes(q) ||
+      phone.includes(q) ||
+      secPhone.includes(q) ||
+      addr.includes(q);
 
     const matchesGov =
       selectedGovernorate === "all" ||
@@ -374,12 +382,12 @@ export const AdminCustomersTab: React.FC<AdminCustomersTabProps> = ({
               <div className="flex items-center justify-between border-b border-neutral-100 pb-4 mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-neutral-950 text-white flex items-center justify-center font-bold text-sm">
-                    {selectedCustomer.fullName.slice(0, 1) || "C"}
+                    {selectedCustomer?.fullName ? selectedCustomer.fullName.slice(0, 1) : "C"}
                   </div>
                   <div>
-                    <h3 className="text-sm font-black text-neutral-950">{selectedCustomer.fullName}</h3>
+                    <h3 className="text-sm font-black text-neutral-950">{selectedCustomer?.fullName || "عميل"}</h3>
                     <span className="text-xs text-neutral-500 font-mono" dir="ltr">
-                      {selectedCustomer.phoneNumber}
+                      {selectedCustomer?.phoneNumber || ""}
                     </span>
                   </div>
                 </div>

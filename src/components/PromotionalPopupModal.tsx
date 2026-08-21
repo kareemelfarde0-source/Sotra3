@@ -68,6 +68,29 @@ export const PromotionalPopupModal: React.FC<PromotionalPopupModalProps> = ({
 
   const imageSrc = sanitizeImageUrl(config.imageUrl, SOTRA_BANNER_PLACEHOLDER);
   const isClickable = Boolean(config.actionType && config.actionType !== "none");
+  const ratio = config.aspectRatio || "18:9";
+
+  // Aspect ratio styling
+  const getAspectClasses = () => {
+    switch (ratio) {
+      case "18:9":
+        return { aspect: "aspect-[18/9]", container: "max-w-lg sm:max-w-2xl" };
+      case "4:3":
+        return { aspect: "aspect-[4/3]", container: "max-w-md sm:max-w-lg" };
+      case "16:9":
+        return { aspect: "aspect-[16/9]", container: "max-w-lg sm:max-w-2xl" };
+      case "1:1":
+        return { aspect: "aspect-square", container: "max-w-sm sm:max-w-md" };
+      case "3:4":
+        return { aspect: "aspect-[3/4]", container: "max-w-xs sm:max-w-sm" };
+      case "9:16":
+        return { aspect: "aspect-[9/16]", container: "max-w-xs sm:max-w-sm" };
+      default:
+        return { aspect: "", container: "max-w-md sm:max-w-lg" };
+    }
+  };
+
+  const { aspect: aspectClass, container: containerClass } = getAspectClasses();
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-6 select-none font-sans">
@@ -80,7 +103,7 @@ export const PromotionalPopupModal: React.FC<PromotionalPopupModalProps> = ({
       {/* Pure Image Modal Container */}
       <div
         id="promotional-popup-modal"
-        className="relative max-w-md sm:max-w-lg w-full z-10 animate-scale-in my-auto flex flex-col items-center"
+        className={`relative ${containerClass} w-full z-10 animate-scale-in my-auto flex flex-col items-center`}
       >
         {/* Floating Close Button */}
         <button
@@ -97,7 +120,7 @@ export const PromotionalPopupModal: React.FC<PromotionalPopupModalProps> = ({
         {/* Pure Banner Image (Clickable for Redirection) */}
         <div
           onClick={handleAction}
-          className={`relative w-full rounded-3xl overflow-hidden shadow-2xl bg-neutral-900 border border-white/10 ${
+          className={`relative w-full ${aspectClass} rounded-3xl overflow-hidden shadow-2xl bg-neutral-900 border border-white/10 ${
             isClickable ? "cursor-pointer group" : "cursor-default"
           }`}
         >
@@ -108,7 +131,7 @@ export const PromotionalPopupModal: React.FC<PromotionalPopupModalProps> = ({
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).src = SOTRA_BANNER_PLACEHOLDER;
             }}
-            className="w-full max-h-[82vh] object-contain sm:object-cover mx-auto transition-transform duration-500 ease-out group-hover:scale-[1.02] block"
+            className={`w-full ${aspectClass ? "h-full object-cover" : "max-h-[82vh] object-contain sm:object-cover"} mx-auto transition-transform duration-500 ease-out group-hover:scale-[1.02] block`}
           />
         </div>
       </div>

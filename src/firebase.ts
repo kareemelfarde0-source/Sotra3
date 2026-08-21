@@ -5,6 +5,7 @@ import {
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
+  setLogLevel,
   collection,
   doc,
   getDoc,
@@ -47,12 +48,16 @@ import {
 export const DEFAULT_POPUP_CONFIG: PopupBannerConfig = {
   isEnabled: true,
   imageUrl: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1000&q=80",
+  aspectRatio: "18:9",
   titleAr: "عروض الموسم الحصرية 🔥",
   titleEn: "Exclusive Season Offers 🔥",
   subtitleAr: "اكتشف أحدث تشكيلات الملابس والأزياء الفاخرة بخصومات خاصة",
   subtitleEn: "Discover latest luxury drops with exclusive discounts",
   actionType: "category",
   targetId: "",
+  targetProductIds: [],
+  groupTitleAr: "تشكيلة العرض الخاص",
+  groupTitleEn: "Special Offer Collection",
   buttonTextAr: "تسوق العرض الآن",
   buttonTextEn: "Shop Deals Now",
   showFrequency: "once_per_session",
@@ -119,11 +124,13 @@ export const DEFAULT_SPLASH_CONFIG: SplashScreenConfig = {
   isEnabled: true,
   theme: "white",
   brandName: "SOTRA FASHION",
-  subtitleAr: "أجود أنواع الأقمشة التركية والعالمية",
-  subtitleEn: "PREMIUM LUXURY TURKISH & GLOBAL APPAREL",
-  loadingTextAr: "جاري تحضير أحدث التشكيلات الفاخرة...",
-  establishedText: "SOTRA EGYPT • EST. 2026",
+  subtitleAr: "",
+  subtitleEn: "",
+  loadingTextAr: "",
+  establishedText: "",
   logoLetter: "S",
+  customLogoUrl: "",
+  showOnlyLogo: true, // Only the clean luxury logo is displayed by default
   minDurationMs: 1000,
   glowEffect: true,
 };
@@ -132,17 +139,30 @@ export const DEFAULT_SPLASH_CONFIG: SplashScreenConfig = {
 export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const firebaseApp = app;
 
+// Set Firestore log level to error to avoid noisy connection retry warnings when offline
+try {
+  setLogLevel("error");
+} catch {
+  // Ignored if already set
+}
+
 // Initialize Firestore with Database ID from config as mandated
 export const db: Firestore = (() => {
   try {
-    if (firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== "(default)") {
-      return getFirestore(app, firebaseConfig.firestoreDatabaseId);
-    }
-    return initializeFirestore(app, {
-      localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager(),
-      }),
-    });
+    const dbId =
+      firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== "(default)"
+        ? firebaseConfig.firestoreDatabaseId
+        : undefined;
+
+    return initializeFirestore(
+      app,
+      {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager(),
+        }),
+      },
+      dbId
+    );
   } catch {
     return firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== "(default)"
       ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
@@ -150,18 +170,6 @@ export const db: Firestore = (() => {
   }
 })();
 export const auth = getAuth(app);
-
-// Connection Validation
-async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, "test", "connection"));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("the client is offline")) {
-      console.warn("Please check your Firebase configuration or internet connection.");
-    }
-  }
-}
-testConnection();
 
 // Error Handling Definition matching Firebase Skill specifications
 export enum OperationType {
@@ -191,8 +199,9 @@ export interface FirestoreErrorInfo {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): FirestoreErrorInfo {
+  const errMsg = error instanceof Error ? error.message : String(error);
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errMsg,
     authInfo: {
       userId: auth?.currentUser?.uid,
       email: auth?.currentUser?.email,
@@ -208,7 +217,17 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path,
   };
-  console.warn("Firestore Notice:", JSON.stringify(errInfo));
+
+  // Only log if not an expected offline/network unavailable state
+  const isOfflineNotice =
+    errMsg.includes("unavailable") ||
+    errMsg.includes("offline") ||
+    errMsg.includes("Could not reach Cloud Firestore backend") ||
+    errMsg.includes("Failed to get document");
+
+  if (!isOfflineNotice) {
+    console.warn("Firestore Notice:", JSON.stringify(errInfo));
+  }
   return errInfo;
 }
 
@@ -955,13 +974,13 @@ export async function saveCustomerProfileToFirebase(profile: CustomerProfile, ne
 
     const customerRecord: SavedCustomer = {
       id: cleanPhone,
-      fullName: profile.fullName || existingData?.fullName || "",
+      fullName: profile?.fullName || existingData?.fullName || "",
       phoneNumber: cleanPhone,
-      secondaryPhone: profile.secondaryPhone || existingData?.secondaryPhone || "",
-      governorateId: profile.governorateId || existingData?.governorateId || "cairo",
-      governorateNameAr: profile.governorateNameAr || existingData?.governorateNameAr || "",
-      detailedAddress: profile.detailedAddress || existingData?.detailedAddress || "",
-      notes: profile.notes || existingData?.notes || "",
+      secondaryPhone: profile?.secondaryPhone || existingData?.secondaryPhone || "",
+      governorateId: profile?.governorateId || existingData?.governorateId || "cairo",
+      governorateNameAr: profile?.governorateNameAr || existingData?.governorateNameAr || "",
+      detailedAddress: profile?.detailedAddress || existingData?.detailedAddress || "",
+      notes: profile?.notes || existingData?.notes || "",
       totalOrdersCount,
       totalSpent,
       lastOrderDate: new Date().toISOString(),
@@ -1073,15 +1092,13 @@ export async function saveOrderToFirebase(order: Order): Promise<boolean> {
  * Update an existing Order status in Firebase Firestore
  */
 export async function updateOrderInFirebase(orderId: string, updates: Partial<Order>): Promise<boolean> {
-  const docPath = `${COLLECTIONS.ORDERS}/${orderId}`;
+  if (!orderId) return false;
+  const trimmedId = orderId.trim();
+  const docPath = `${COLLECTIONS.ORDERS}/${trimmedId}`;
   try {
-    const docRef = doc(db, COLLECTIONS.ORDERS, orderId);
-    const existing = await getDoc(docRef);
-    if (existing.exists()) {
-      await setDoc(docRef, cleanForFirestore({ ...existing.data(), ...updates }), { merge: true });
-      return true;
-    }
-    return false;
+    const docRef = doc(db, COLLECTIONS.ORDERS, trimmedId);
+    await setDoc(docRef, cleanForFirestore({ ...updates, updatedAt: new Date().toISOString() }), { merge: true });
+    return true;
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, docPath);
     return false;

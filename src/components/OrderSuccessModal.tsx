@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { CheckCircle2, Copy, Check, MessageSquare, ArrowRight, Truck, User, Package } from "lucide-react";
 import { Order } from "../types";
+import { SOTRA_PRODUCT_PLACEHOLDER } from "../utils/storage";
 
 const VODAFONE_CASH_WALLET_NUMBER = "01019284755";
 
@@ -30,8 +31,9 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
     }
   };
 
+  const customerName = order?.customer?.fullName || (order as any)?.customerName || "";
   const whatsappMessage = encodeURIComponent(
-    `مرحباً سترة فاشون (SOTRA FASHION)، تم تسجيل طلبي رقم (${order.orderId}) باسم: ${order.customer.fullName}، محافظة: ${order.governorateNameAr}. ` +
+    `مرحباً سترة فاشون (SOTRA FASHION)، تم تسجيل طلبي رقم (${order.orderId}) باسم: ${customerName}، محافظة: ${order.governorateNameAr || ""}. ` +
       (order.vodafoneSenderPhone
         ? `تم تحويل مصاريف الشحن فودافون كاش من الرقم: ${order.vodafoneSenderPhone}.`
         : `أود تأكيد الشحن ومتابعة حالة الطلب.`)
@@ -60,7 +62,7 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
 
           <div className="p-5 sm:p-6 space-y-5">
             {/* Vodafone Cash notice */}
-            {order.customer.paymentMethod === "vodafone_cash" && (
+            {order?.customer?.paymentMethod === "vodafone_cash" && (
               <div className="bg-gradient-to-r from-red-950 to-neutral-900 text-white p-4 rounded-xl space-y-2 border border-red-800/40">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-black uppercase tracking-wider text-red-300 font-brand flex items-center gap-1.5">
@@ -111,11 +113,11 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-neutral-700">
                 <div>
                   <span className="font-bold text-neutral-500 block">{lang === "ar" ? "الاسم:" : "Name:"}</span>
-                  <span className="font-bold text-neutral-900">{order.customer.fullName}</span>
+                  <span className="font-bold text-neutral-900">{order?.customer?.fullName || customerName || "عميل"}</span>
                 </div>
                 <div>
                   <span className="font-bold text-neutral-500 block">{lang === "ar" ? "الهاتف:" : "Phone:"}</span>
-                  <span className="font-bold text-neutral-900 font-sans">{order.customer.phoneNumber}</span>
+                  <span className="font-bold text-neutral-900 font-sans">{order?.customer?.phoneNumber || ""}</span>
                 </div>
                 <div>
                   <span className="font-bold text-neutral-500 block">
@@ -136,7 +138,7 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
                   {lang === "ar" ? "العنوان بالتفصيل:" : "Detailed Address:"}
                 </span>
                 <span className="font-semibold text-neutral-800 leading-relaxed">
-                  {order.customer.detailedAddress}
+                  {order?.customer?.detailedAddress || ""}
                 </span>
               </div>
             </div>
@@ -144,32 +146,32 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
             {/* Items Summary */}
             <div>
               <h4 className="text-xs font-extrabold uppercase text-neutral-800 mb-2 font-brand">
-                {lang === "ar" ? "محتويات الشحنة" : "Package Contents"} ({order.items.length})
+                {lang === "ar" ? "محتويات الشحنة" : "Package Contents"} ({order?.items?.length || 0})
               </h4>
               <div className="space-y-2 max-h-36 overflow-y-auto no-scrollbar">
-                {order.items.map((item) => (
+                {(order?.items || []).map((item, itemIdx) => (
                   <div
-                    key={item.id}
+                    key={`${item?.id || itemIdx}-${item?.selectedColor?.name || ""}-${item?.selectedSize || ""}-${itemIdx}`}
                     className="flex items-center justify-between p-2 rounded-lg bg-neutral-50 border border-neutral-100 text-xs"
                   >
                     <div className="flex items-center gap-2.5">
                       <img
-                        src={item.selectedColor.image}
-                        alt={item.title}
+                        src={item?.selectedColor?.image || SOTRA_PRODUCT_PLACEHOLDER}
+                        alt={item?.title || "Product"}
                         className="w-9 h-11 object-cover rounded"
                       />
                       <div>
                         <p className="font-bold text-neutral-900 break-words leading-tight">
-                          {lang === "ar" ? item.titleAr : item.title}
+                          {lang === "ar" ? item?.titleAr || item?.title : item?.title}
                         </p>
                         <p className="text-[10px] text-neutral-500">
-                          {lang === "ar" ? item.selectedColor.nameAr : item.selectedColor.name} |{" "}
-                          {lang === "ar" ? "مقاس" : "Size"} {item.selectedSize} × {item.quantity}
+                          {item?.selectedColor?.nameAr || item?.selectedColor?.name || ""} |{" "}
+                          {lang === "ar" ? "مقاس" : "Size"} {item?.selectedSize || ""} × {item?.quantity || 1}
                         </p>
                       </div>
                     </div>
                     <span className="font-extrabold text-neutral-950 font-brand">
-                      {((Number(item.price) || 0) * (Number(item.quantity) || 1)).toFixed(2)} LE
+                      {((Number(item?.price) || 0) * (Number(item?.quantity) || 1)).toFixed(2)} LE
                     </span>
                   </div>
                 ))}

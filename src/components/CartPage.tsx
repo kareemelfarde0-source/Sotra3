@@ -58,7 +58,7 @@ export const CartPage: React.FC<CartPageProps> = ({
       const raw = localStorage.getItem(STORAGE_KEYS.PROFILE);
       if (raw) {
         const profile = JSON.parse(raw);
-        if (profile.fullName && profile.phoneNumber && profile.detailedAddress) {
+        if (profile && typeof profile === "object" && profile.fullName && profile.phoneNumber && profile.detailedAddress) {
           setSavedProfile(profile);
         } else {
           setSavedProfile(null);
@@ -218,14 +218,14 @@ export const CartPage: React.FC<CartPageProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-neutral-700">
                     <div className="flex items-center gap-2">
                       <User className="w-3.5 h-3.5 text-neutral-400" />
-                      <span className="font-bold">{savedProfile.fullName}</span>
+                      <span className="font-bold">{savedProfile?.fullName || ""}</span>
                       <span className="text-neutral-400">•</span>
-                      <span className="font-mono">{savedProfile.phoneNumber}</span>
+                      <span className="font-mono">{savedProfile?.phoneNumber || ""}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <MapPin className="w-3.5 h-3.5 text-red-600" />
-                      <span className="font-bold">{selectedGovernorate.nameAr}:</span>
-                      <span className="truncate">{savedProfile.detailedAddress}</span>
+                      <span className="font-bold">{selectedGovernorate?.nameAr || ""}:</span>
+                      <span className="truncate">{savedProfile?.detailedAddress || ""}</span>
                     </div>
                   </div>
                 </div>
@@ -233,12 +233,12 @@ export const CartPage: React.FC<CartPageProps> = ({
 
               {/* Items Card */}
               <div className="bg-white border border-neutral-200 rounded-2xl p-4 sm:p-6 shadow-2xs divide-y divide-neutral-100">
-                {items.map((item) => (
-                  <div key={item.id} className="py-4 first:pt-0 last:pb-0 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                {(items || []).map((item, idx) => (
+                  <div key={`${item?.id || idx}-${item?.selectedColor?.name || ""}-${item?.selectedSize || ""}-${idx}`} className="py-4 first:pt-0 last:pb-0 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
                     <div className="flex gap-3 sm:gap-4 items-center">
                       <img
-                        src={sanitizeImageUrl(item.selectedColor.image, SOTRA_PRODUCT_PLACEHOLDER)}
-                        alt={item.title}
+                        src={sanitizeImageUrl(item?.selectedColor?.image, SOTRA_PRODUCT_PLACEHOLDER)}
+                        alt={item?.title || "Product"}
                         referrerPolicy="no-referrer"
                         onError={(e) => {
                           (e.currentTarget as HTMLImageElement).src = SOTRA_PRODUCT_PLACEHOLDER;
@@ -247,19 +247,19 @@ export const CartPage: React.FC<CartPageProps> = ({
                       />
                       <div className="space-y-1">
                         <h4 className="text-sm sm:text-base font-black text-neutral-950 font-brand">
-                          {lang === "ar" ? item.titleAr || item.title : item.title}
+                          {lang === "ar" ? item?.titleAr || item?.title : item?.title}
                         </h4>
                         <div className="flex items-center gap-2 text-xs text-neutral-600 font-medium">
                           <span className="flex items-center gap-1">
                             <span
                               className="w-2.5 h-2.5 rounded-full border border-neutral-300"
-                              style={{ backgroundColor: item.selectedColor.colorCode }}
+                              style={{ backgroundColor: item?.selectedColor?.colorCode || "#000" }}
                             />
-                            {lang === "ar" ? item.selectedColor.nameAr || item.selectedColor.name : item.selectedColor.name}
+                            {lang === "ar" ? item?.selectedColor?.nameAr || item?.selectedColor?.name || "" : item?.selectedColor?.name || ""}
                           </span>
                           <span>•</span>
                           <span className="font-bold font-mono bg-neutral-100 px-1.5 py-0.5 rounded text-neutral-800">
-                            {item.selectedSize}
+                            {item?.selectedSize || ""}
                           </span>
                         </div>
                         <div className="text-sm font-black text-neutral-950 font-brand pt-1">

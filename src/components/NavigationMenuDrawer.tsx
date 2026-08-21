@@ -1,5 +1,5 @@
 import React from "react";
-import { X, ArrowRight, ArrowLeft, Tag, User, Search, ShoppingBag, MessageSquare, Globe, Check, Lock } from "lucide-react";
+import { X, ArrowRight, ArrowLeft, Tag, User, Search, ShoppingBag, MessageSquare, Globe, Check } from "lucide-react";
 import { Category, OfferCategory } from "../types";
 
 interface NavigationMenuDrawerProps {
@@ -12,7 +12,6 @@ interface NavigationMenuDrawerProps {
   onOpenProfile: () => void;
   onOpenCart: () => void;
   onOpenSearch: () => void;
-  onOpenAdmin?: () => void;
   lang: "ar" | "en";
   onToggleLang: () => void;
 }
@@ -27,7 +26,6 @@ export const NavigationMenuDrawer: React.FC<NavigationMenuDrawerProps> = ({
   onOpenProfile,
   onOpenCart,
   onOpenSearch,
-  onOpenAdmin,
   lang,
   onToggleLang,
 }) => {
@@ -204,19 +202,6 @@ export const NavigationMenuDrawer: React.FC<NavigationMenuDrawerProps> = ({
                 0100000000
               </a>
             </div>
-
-            {onOpenAdmin && (
-              <button
-                onClick={() => {
-                  onClose();
-                  onOpenAdmin();
-                }}
-                className="w-full mt-2 py-2 px-3 bg-neutral-200/80 hover:bg-neutral-900 hover:text-white rounded-xl font-brand font-bold text-[11px] text-neutral-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <Lock className="w-3.5 h-3.5 text-amber-500" />
-                <span>{lang === "ar" ? "لوحة تحكم المتجر (Admin)" : "Store Admin Portal"}</span>
-              </button>
-            )}
           </div>
         </div>
       </div>

@@ -65,7 +65,7 @@ export const AdminPasswordModal: React.FC<AdminPasswordModalProps> = ({
                 setPassword(e.target.value);
                 setError(false);
               }}
-              placeholder={lang === "ar" ? "كلمة المرور (admin)" : "Password (admin)"}
+              placeholder={lang === "ar" ? "أدخل كلمة المرور" : "Enter Password"}
               autoFocus
               className={`w-full px-4 py-3 text-sm rounded-xl border text-center font-mono tracking-widest outline-none transition-all ${
                 error
@@ -85,7 +85,7 @@ export const AdminPasswordModal: React.FC<AdminPasswordModalProps> = ({
           {error && (
             <div className="flex items-center justify-center gap-1.5 text-xs text-red-600 font-bold animate-shake">
               <ShieldAlert className="w-4 h-4" />
-              <span>{lang === "ar" ? "كلمة السر غير صحيحة (admin)" : "Incorrect password (admin)"}</span>
+              <span>{lang === "ar" ? "كلمة السر غير صحيحة" : "Incorrect password"}</span>
             </div>
           )}
 

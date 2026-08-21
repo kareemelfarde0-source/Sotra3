@@ -5,14 +5,12 @@ import { DEFAULT_FOOTER_CONFIG } from "../utils/storage";
 
 interface FooterProps {
   onOpenProfile: () => void;
-  onOpenAdmin?: () => void;
   lang: "ar" | "en";
   footerConfig?: FooterConfig;
 }
 
 export const Footer: React.FC<FooterProps> = ({
   onOpenProfile,
-  onOpenAdmin,
   lang,
   footerConfig,
 }) => {
@@ -88,16 +86,6 @@ export const Footer: React.FC<FooterProps> = ({
                 {lang === "ar" ? "حسابي وتتبع وإلغاء الطلبات" : "My Account & Orders"}
               </button>
             </li>
-            {onOpenAdmin && (
-              <li>
-                <button
-                  onClick={onOpenAdmin}
-                  className="hover:text-amber-400 transition-colors cursor-pointer flex items-center gap-1 text-[11px] text-neutral-500 hover:underline"
-                >
-                  <span>{lang === "ar" ? "لوحة تحكم الإدارة (Admin)" : "Admin Dashboard"}</span>
-                </button>
-              </li>
-            )}
           </ul>
         </div>
 

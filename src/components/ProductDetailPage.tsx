@@ -460,7 +460,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 {lang === "ar" ? "مواصفات وتفاصيل القطعة" : "Product Specifications"}
               </h3>
               <ul className="space-y-2 text-xs text-neutral-700 leading-relaxed list-disc list-inside">
-                {(lang === "ar" ? product.featuresAr : product.features).map((feat, i) => (
+                {((lang === "ar" ? (product.featuresAr?.length ? product.featuresAr : product.features) : (product.features?.length ? product.features : product.featuresAr)) || []).map((feat, i) => (
                   <li key={i}>{feat}</li>
                 ))}
               </ul>
@@ -490,7 +490,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 >
                   <div className="aspect-[3/4] bg-neutral-100 overflow-hidden relative">
                     <img
-                      src={rel.colors[0]?.image}
+                      src={rel.colors?.[0]?.image || SOTRA_PRODUCT_PLACEHOLDER}
                       alt={rel.title}
                       referrerPolicy="no-referrer"
                       className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"

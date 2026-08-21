@@ -77,8 +77,8 @@ export const OfferCategoryDetailPage: React.FC<OfferCategoryDetailPageProps> = (
       {/* Offer Categories Pills Strip */}
       <div className="bg-white border-b border-neutral-200 py-2.5 px-3 sm:px-6">
         <div className="max-w-7xl mx-auto flex items-center gap-2 overflow-x-auto no-scrollbar">
-          {allOfferCategories.map((cat) => {
-            const isSelected = cat.id === offerCategory.id;
+          {(allOfferCategories || []).map((cat) => {
+            const isSelected = cat.id === offerCategory?.id;
             return (
               <button
                 key={cat.id}
@@ -200,7 +200,7 @@ export const OfferCategoryDetailPage: React.FC<OfferCategoryDetailPageProps> = (
                 : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
             }`}
           >
-            {filteredProducts.map((product) => (
+            {(filteredProducts || []).map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}

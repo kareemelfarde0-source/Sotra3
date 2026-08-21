@@ -23,13 +23,16 @@ import { DiscountBadge } from "./DiscountBadge";
 import { PromotionalPopupModal } from "./PromotionalPopupModal";
 
 interface AdminPopupBannerSettingsProps {
+  config?: PopupBannerConfig;
   popupConfig?: PopupBannerConfig;
   discountBadgeStyle?: DiscountBadgeStyle;
   categories: Category[];
   offerCategories: OfferCategory[];
   products: Product[];
-  onSavePopupConfig: (newConfig: PopupBannerConfig) => void;
-  onSaveDiscountBadgeStyle: (style: DiscountBadgeStyle) => void;
+  onSaveConfig?: (newConfig: PopupBannerConfig) => void;
+  onSavePopupConfig?: (newConfig: PopupBannerConfig) => void;
+  onSaveDiscountStyle?: (style: DiscountBadgeStyle) => void;
+  onSaveDiscountBadgeStyle?: (style: DiscountBadgeStyle) => void;
   showToast: (msg: string) => void;
   lang: "ar" | "en";
 }
@@ -37,6 +40,7 @@ interface AdminPopupBannerSettingsProps {
 export const DEFAULT_POPUP_CONFIG: PopupBannerConfig = {
   isEnabled: true,
   imageUrl: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1000&q=80",
+  aspectRatio: "18:9",
   titleAr: "عروض الموسم الحصرية 🔥",
   titleEn: "Exclusive Season Offers 🔥",
   subtitleAr: "اكتشف أحدث تشكيلات الملابس والأزياء الفاخرة بخصومات خاصة",
@@ -53,37 +57,67 @@ export const DEFAULT_POPUP_CONFIG: PopupBannerConfig = {
 };
 
 export const AdminPopupBannerSettings: React.FC<AdminPopupBannerSettingsProps> = ({
+  config,
   popupConfig,
   discountBadgeStyle = "vertical_left",
   categories = [],
   offerCategories = [],
   products = [],
+  onSaveConfig,
   onSavePopupConfig,
+  onSaveDiscountStyle,
   onSaveDiscountBadgeStyle,
   showToast,
   lang,
 }) => {
+  const effectiveConfig = popupConfig || config;
+  const effectiveSavePopup = onSavePopupConfig || onSaveConfig;
+  const effectiveSaveBadgeStyle = onSaveDiscountBadgeStyle || onSaveDiscountStyle;
+
   const [localConfig, setLocalConfig] = useState<PopupBannerConfig>(() => ({
     ...DEFAULT_POPUP_CONFIG,
-    ...(popupConfig || {}),
-    targetProductIds: popupConfig?.targetProductIds || [],
+    ...(effectiveConfig || {}),
+    aspectRatio: effectiveConfig?.aspectRatio || "18:9",
+    targetProductIds: effectiveConfig?.targetProductIds || [],
   }));
+
+  // Sync state if remote/props update from Firestore
+  useEffect(() => {
+    if (effectiveConfig) {
+      setLocalConfig((prev) => ({
+        ...DEFAULT_POPUP_CONFIG,
+        ...prev,
+        ...effectiveConfig,
+        aspectRatio: effectiveConfig.aspectRatio || prev.aspectRatio || "18:9",
+      }));
+    }
+  }, [effectiveConfig]);
 
   const [selectedBadgeStyle, setSelectedBadgeStyle] = useState<DiscountBadgeStyle>(
     discountBadgeStyle || "vertical_left"
   );
 
+  useEffect(() => {
+    if (discountBadgeStyle) {
+      setSelectedBadgeStyle(discountBadgeStyle);
+    }
+  }, [discountBadgeStyle]);
+
   const [productSearchQuery, setProductSearchQuery] = useState("");
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
 
   const handleSavePopup = () => {
-    onSavePopupConfig(localConfig);
-    showToast("✅ تم حفظ إعدادات النافذة الإعلانية المنبثقة بنجاح!");
+    if (effectiveSavePopup) {
+      effectiveSavePopup(localConfig);
+    }
+    showToast("✅ تم حفظ إعدادات ومقاسات النافذة الإعلانية المنبثقة بنجاح!");
   };
 
   const handleSaveBadgeStyle = (style: DiscountBadgeStyle) => {
     setSelectedBadgeStyle(style);
-    onSaveDiscountBadgeStyle(style);
+    if (effectiveSaveBadgeStyle) {
+      effectiveSaveBadgeStyle(style);
+    }
     showToast("✅ تم تحديث شكل وموضع شريط الخصم لجميع منتجات المتجر!");
   };
 
@@ -166,19 +200,61 @@ export const AdminPopupBannerSettings: React.FC<AdminPopupBannerSettingsProps> =
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left / Main Configuration Column */}
           <div className="lg:col-span-7 space-y-4">
-            {/* Banner Image URL */}
-            <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1">
-                {lang === "ar" ? "رابط صورة الإعلان المنبثق *" : "Popup Banner Image URL *"}
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={localConfig.imageUrl || ""}
-                  onChange={(e) => setLocalConfig({ ...localConfig, imageUrl: e.target.value })}
-                  placeholder="https://... أو أدخل رابط الصورة"
-                  className="flex-1 px-3.5 py-2.5 text-xs rounded-xl border border-neutral-300 outline-none focus:border-neutral-950 font-mono"
-                />
+            {/* Banner Image URL & Aspect Ratio Selector */}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">
+                  {lang === "ar" ? "رابط صورة الإعلان المنبثق *" : "Popup Banner Image URL *"}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={localConfig.imageUrl || ""}
+                    onChange={(e) => setLocalConfig({ ...localConfig, imageUrl: e.target.value })}
+                    placeholder="https://... أو أدخل رابط الصورة"
+                    className="flex-1 px-3.5 py-2.5 text-xs rounded-xl border border-neutral-300 outline-none focus:border-neutral-950 font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Aspect Ratio Selector (18:9, 4:3, etc.) */}
+              <div className="p-3.5 bg-neutral-50 rounded-2xl border border-neutral-200">
+                <label className="block text-xs font-black text-neutral-900 mb-2 font-brand">
+                  {lang === "ar" ? "📐 مقاس وأبعاد صورة النافذة المنبثقة:" : "📐 Popup Image Aspect Ratio:"}
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { id: "18:9", labelAr: "18:9 عريض حديث", labelEn: "18:9 Panoramic" },
+                    { id: "4:3", labelAr: "4:3 قياسي متناسق", labelEn: "4:3 Standard" },
+                    { id: "16:9", labelAr: "16:9 شاشة عريضة", labelEn: "16:9 Widescreen" },
+                    { id: "1:1", labelAr: "1:1 مربع متساوي", labelEn: "1:1 Square" },
+                    { id: "3:4", labelAr: "3:4 طولي أنيق", labelEn: "3:4 Portrait" },
+                    { id: "9:16", labelAr: "9:16 ستوري طولي", labelEn: "9:16 Reel/Story" },
+                    { id: "auto", labelAr: "تلقائي حسب أبعاد الصورة", labelEn: "Auto / Natural" },
+                  ].map((ratioOpt) => {
+                    const isSelected = (localConfig.aspectRatio || "18:9") === ratioOpt.id;
+                    return (
+                      <button
+                        key={ratioOpt.id}
+                        type="button"
+                        onClick={() => setLocalConfig({ ...localConfig, aspectRatio: ratioOpt.id as any })}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border text-start flex items-center justify-between cursor-pointer ${
+                          isSelected
+                            ? "bg-neutral-950 text-white border-neutral-950 shadow-xs"
+                            : "bg-white text-neutral-700 border-neutral-300 hover:border-neutral-400"
+                        }`}
+                      >
+                        <span className="truncate">{lang === "ar" ? ratioOpt.labelAr : ratioOpt.labelEn}</span>
+                        {isSelected && <span className="text-[10px] text-amber-400 font-black">✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-[11px] text-neutral-500 font-medium">
+                  {lang === "ar"
+                    ? "💡 يمكنك التبديل بين مقاس 18:9 أو 4:3 وغيرهما بكل سهولة ليظهر الإعلان بالشكل المثالي للعملاء."
+                    : "💡 Toggle between 18:9, 4:3, or other ratios to perfectly fit your promotional creatives."}
+                </p>
               </div>
             </div>
 
@@ -562,36 +638,61 @@ export const AdminPopupBannerSettings: React.FC<AdminPopupBannerSettingsProps> =
           <div className="lg:col-span-5 flex flex-col items-center">
             <div className="w-full">
               <span className="block text-xs font-bold text-neutral-500 mb-2">
-                {lang === "ar" ? "👁️ معاينة مباشرة للنافذة المنبثقة (صورة فقط):" : "👁️ Live Popup Preview (Image Only):"}
+                {lang === "ar" ? "👁️ معاينة مباشرة للنافذة المنبثقة بالمقاس المختار:" : "👁️ Live Popup Preview with Chosen Ratio:"}
               </span>
               <div className="bg-neutral-100 p-6 rounded-3xl border border-neutral-200 flex flex-col items-center justify-center min-h-[300px]">
-                <div className="relative w-full max-w-xs rounded-2xl overflow-hidden shadow-2xl bg-neutral-900 border border-neutral-300 group">
+                <div
+                  className={`relative w-full ${
+                    localConfig.aspectRatio === "18:9"
+                      ? "max-w-sm aspect-[18/9]"
+                      : localConfig.aspectRatio === "4:3"
+                      ? "max-w-xs aspect-[4/3]"
+                      : localConfig.aspectRatio === "16:9"
+                      ? "max-w-sm aspect-[16/9]"
+                      : localConfig.aspectRatio === "1:1"
+                      ? "max-w-xs aspect-square"
+                      : localConfig.aspectRatio === "3:4"
+                      ? "max-w-[220px] aspect-[3/4]"
+                      : localConfig.aspectRatio === "9:16"
+                      ? "max-w-[180px] aspect-[9/16]"
+                      : "max-w-xs h-auto"
+                  } rounded-2xl overflow-hidden shadow-2xl bg-neutral-900 border border-neutral-300 group transition-all duration-300`}
+                >
                   {/* Floating close button */}
-                  <div className="absolute top-2 end-2 z-20 w-7 h-7 rounded-full bg-black/80 text-white flex items-center justify-center border border-white/30 text-xs">
+                  <div className="absolute top-2 end-2 z-20 w-7 h-7 rounded-full bg-black/80 text-white flex items-center justify-center border border-white/30 text-xs shadow-md">
                     <X className="w-3.5 h-3.5" />
                   </div>
 
                   <img
                     src={imagePreview}
                     alt="Preview"
-                    className="w-full h-auto max-h-[320px] object-cover object-center"
+                    className={`w-full ${
+                      localConfig.aspectRatio && localConfig.aspectRatio !== "auto"
+                        ? "h-full object-cover"
+                        : "h-auto max-h-[320px] object-cover"
+                    } object-center`}
                     onError={(e) => {
                       (e.currentTarget as HTMLImageElement).src = SOTRA_BANNER_PLACEHOLDER;
                     }}
                   />
                 </div>
 
-                {/* Target Redirection Info Pill */}
-                <div className="mt-3.5 text-[11px] text-neutral-700 bg-white px-3 py-1.5 rounded-full border border-neutral-200 shadow-2xs font-bold flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>
-                    {localConfig.actionType === "category" && (lang === "ar" ? "النقر على الصورة يفتح القسم: " : "Clicks open category: ") + (categories.find(c => c.id === localConfig.targetId)?.nameAr || "القسم")}
-                    {localConfig.actionType === "offer_category" && (lang === "ar" ? "النقر على الصورة يفتح قسم العروض: " : "Clicks open offer: ") + (offerCategories.find(o => o.id === localConfig.targetId)?.nameAr || "العروض")}
-                    {localConfig.actionType === "product" && (lang === "ar" ? "النقر على الصورة يفتح المنتج: " : "Clicks open product: ") + (products.find(p => p.id === localConfig.targetId)?.titleAr || "المنتج")}
-                    {localConfig.actionType === "products_group" && (lang === "ar" ? `النقر يفتح تشكيلة خاصة (${localConfig.targetProductIds?.length || 0} منتجات)` : `Clicks open collection (${localConfig.targetProductIds?.length || 0} items)`)}
-                    {localConfig.actionType === "custom_url" && (lang === "ar" ? "النقر يفتح الرابط الخارجي" : "Clicks open custom URL")}
-                    {(!localConfig.actionType || localConfig.actionType === "none") && (lang === "ar" ? "عرض الصورة فقط (بدون تحويل عند النقر)" : "Pure Image Display (No Redirection)")}
+                {/* Ratio & Target Redirection Info Pill */}
+                <div className="mt-3.5 flex flex-col items-center gap-1.5 text-center">
+                  <span className="text-[11px] font-black text-neutral-800 bg-amber-50 text-amber-900 border border-amber-200 px-3 py-1 rounded-full shadow-2xs font-mono">
+                    المقاس المطبق: {localConfig.aspectRatio || "18:9"}
                   </span>
+                  <div className="text-[11px] text-neutral-700 bg-white px-3 py-1.5 rounded-full border border-neutral-200 shadow-2xs font-bold flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>
+                      {localConfig.actionType === "category" && (lang === "ar" ? "النقر على الصورة يفتح القسم: " : "Clicks open category: ") + (categories.find(c => c.id === localConfig.targetId)?.nameAr || "القسم")}
+                      {localConfig.actionType === "offer_category" && (lang === "ar" ? "النقر على الصورة يفتح قسم العروض: " : "Clicks open offer: ") + (offerCategories.find(o => o.id === localConfig.targetId)?.nameAr || "العروض")}
+                      {localConfig.actionType === "product" && (lang === "ar" ? "النقر على الصورة يفتح المنتج: " : "Clicks open product: ") + (products.find(p => p.id === localConfig.targetId)?.titleAr || "المنتج")}
+                      {localConfig.actionType === "products_group" && (lang === "ar" ? `النقر يفتح تشكيلة خاصة (${localConfig.targetProductIds?.length || 0} منتجات)` : `Clicks open collection (${localConfig.targetProductIds?.length || 0} items)`)}
+                      {localConfig.actionType === "custom_url" && (lang === "ar" ? "النقر يفتح الرابط الخارجي" : "Clicks open custom URL")}
+                      {(!localConfig.actionType || localConfig.actionType === "none") && (lang === "ar" ? "عرض الصورة فقط (بدون تحويل عند النقر)" : "Pure Image Display (No Redirection)")}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>

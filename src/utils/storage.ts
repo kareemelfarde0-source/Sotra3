@@ -119,6 +119,7 @@ export const STORAGE_KEYS = {
   ORDERS: "sotra_orders_v5",
   PROFILE: "sotra_profile_v5",
   COUPONS: "sotra_coupons_v5",
+  MY_ORDER_IDS: "sotra_my_order_ids_v5",
 };
 
 export function getInvKey(colorNameAr?: string, colorName?: string, size?: string): string {
@@ -264,6 +265,97 @@ export function saveOrders(orders: Order[]): void {
   } catch (e) {
     console.error("Failed to save orders to localStorage", e);
   }
+}
+
+/**
+ * Normalizes phone numbers for accurate customer matching
+ */
+export function cleanCustomerPhone(phone?: string): string {
+  if (!phone || typeof phone !== "string") return "";
+  let clean = phone.replace(/[\s\-\(\)\.]+/g, "").trim();
+  // Strip country codes: +20, 0020, 20
+  if (clean.startsWith("+20")) clean = "0" + clean.slice(3);
+  else if (clean.startsWith("0020")) clean = "0" + clean.slice(4);
+  else if (clean.startsWith("20") && clean.length >= 12) clean = "0" + clean.slice(2);
+  else if (clean.length === 10 && clean.startsWith("1")) clean = "0" + clean;
+  return clean;
+}
+
+/**
+ * Retrieves the list of order IDs placed by the current user on this device
+ */
+export function getMyOrderIds(): string[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.MY_ORDER_IDS);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed.map(String);
+    }
+  } catch (e) {
+    console.warn("Could not read my order IDs from storage", e);
+  }
+  return [];
+}
+
+/**
+ * Registers an order ID as belonging to the current user
+ */
+export function addMyOrderId(orderId: string): void {
+  if (!orderId) return;
+  try {
+    const current = getMyOrderIds();
+    if (!current.includes(orderId)) {
+      const updated = [orderId, ...current];
+      localStorage.setItem(STORAGE_KEYS.MY_ORDER_IDS, JSON.stringify(updated));
+    }
+  } catch (e) {
+    console.warn("Could not save my order ID to storage", e);
+  }
+}
+
+/**
+ * Filters orders so only the registered customer's own orders are returned.
+ * Matches by phone number or by locally registered order IDs.
+ */
+export function filterCustomerOrders(
+  allOrders: Order[],
+  customerPhone?: string,
+  myOrderIds?: string[]
+): Order[] {
+  if (!Array.isArray(allOrders) || allOrders.length === 0) return [];
+
+  const targetPhone = cleanCustomerPhone(customerPhone);
+  const ids = myOrderIds || getMyOrderIds();
+
+  // If no phone and no local order IDs registered, return empty array to prevent data leakage
+  if (!targetPhone && ids.length === 0) {
+    return [];
+  }
+
+  return allOrders.filter((order) => {
+    if (!order) return false;
+
+    // 1. Match by stored local order IDs
+    if (order.orderId && ids.includes(order.orderId)) {
+      return true;
+    }
+
+    // 2. Match by primary customer phone
+    if (targetPhone) {
+      const orderPhone = cleanCustomerPhone(order.customer?.phoneNumber);
+      if (orderPhone && orderPhone === targetPhone) return true;
+
+      // 3. Match by secondary phone
+      const secPhone = cleanCustomerPhone(order.customer?.secondaryPhone);
+      if (secPhone && secPhone === targetPhone) return true;
+
+      // 4. Match by Vodafone sender phone if applicable
+      const vodafonePhone = cleanCustomerPhone(order.vodafoneSenderPhone || order.senderPhoneOrInstaPayId);
+      if (vodafonePhone && vodafonePhone === targetPhone) return true;
+    }
+
+    return false;
+  });
 }
 
 export function normalizeKeyPart(str?: string): string {
@@ -419,11 +511,26 @@ export function restoreInventory(orderItems: CartItem[]): void {
   }
 }
 
-export function cancelOrder(orderId: string, reason?: string): { success: boolean; message: string; updatedOrders: Order[] } {
+export function cancelOrder(
+  orderId: string,
+  reason?: string,
+  currentOrdersList?: Order[]
+): { success: boolean; message: string; updatedOrders: Order[] } {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.ORDERS);
-    const orders: Order[] = raw ? JSON.parse(raw) : [];
-    const orderIndex = orders.findIndex((o) => o.orderId === orderId);
+    let orders: Order[] = raw ? JSON.parse(raw) : [];
+
+    if (currentOrdersList && currentOrdersList.length > 0) {
+      const orderMap = new Map<string, Order>();
+      orders.forEach((o) => { if (o.orderId) orderMap.set(o.orderId.trim(), o); });
+      currentOrdersList.forEach((o) => { if (o.orderId) orderMap.set(o.orderId.trim(), o); });
+      orders = Array.from(orderMap.values());
+    }
+
+    const trimmedId = (orderId || "").trim();
+    const orderIndex = orders.findIndex(
+      (o) => o.orderId && o.orderId.trim().toLowerCase() === trimmedId.toLowerCase()
+    );
 
     if (orderIndex === -1) {
       return { success: false, message: "لم يتم العثور على الطلب", updatedOrders: orders };
@@ -438,14 +545,16 @@ export function cancelOrder(orderId: string, reason?: string): { success: boolea
 
     targetOrder.trackingStatus = "cancelled";
     targetOrder.cancelledAt = new Date().toISOString();
+    targetOrder.updatedAt = new Date().toISOString();
     targetOrder.cancellationReason = reason || "تم إلغاء الطلب بناءً على رغبة العميل وإرجاع المنتجات للمخزون";
 
     orders[orderIndex] = targetOrder;
     localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
-    updateOrderInFirebase(orderId, {
+    updateOrderInFirebase(trimmedId, {
       trackingStatus: "cancelled",
       cancelledAt: targetOrder.cancelledAt,
       cancellationReason: targetOrder.cancellationReason,
+      updatedAt: targetOrder.updatedAt,
     }).catch((e) => console.warn("Firebase updateOrder error:", e));
 
     return { success: true, message: "تم إلغاء الطلب بنجاح وإرجاع الكمية إلى المخزون", updatedOrders: orders };
@@ -522,28 +631,52 @@ export function validatePromoCode(
   };
 }
 
-export function updateOrderStatus(orderId: string, newStatus: OrderStatus): { success: boolean; updatedOrders: Order[] } {
+export function updateOrderStatus(
+  orderId: string,
+  newStatus: OrderStatus,
+  currentOrdersList?: Order[]
+): { success: boolean; updatedOrders: Order[] } {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.ORDERS);
-    const orders: Order[] = raw ? JSON.parse(raw) : [];
-    const idx = orders.findIndex((o) => o.orderId === orderId);
+    let orders: Order[] = raw ? JSON.parse(raw) : [];
+
+    // Merge currentOrdersList if provided to make sure we don't miss live items
+    if (currentOrdersList && currentOrdersList.length > 0) {
+      const orderMap = new Map<string, Order>();
+      orders.forEach((o) => { if (o.orderId) orderMap.set(o.orderId.trim(), o); });
+      currentOrdersList.forEach((o) => { if (o.orderId) orderMap.set(o.orderId.trim(), o); });
+      orders = Array.from(orderMap.values());
+    }
+
+    const trimmedId = (orderId || "").trim();
+    const idx = orders.findIndex(
+      (o) => o.orderId && o.orderId.trim().toLowerCase() === trimmedId.toLowerCase()
+    );
 
     if (idx === -1) {
+      console.warn(`Order not found for status update: ${orderId}`);
       return { success: false, updatedOrders: orders };
     }
 
     const prevStatus = orders[idx].trackingStatus;
-    orders[idx].trackingStatus = newStatus;
+    const nowIso = new Date().toISOString();
+
+    orders[idx] = {
+      ...orders[idx],
+      trackingStatus: newStatus,
+      updatedAt: nowIso,
+    };
 
     if (newStatus === "cancelled" && prevStatus !== "cancelled") {
       restoreInventory(orders[idx].items || []);
-      orders[idx].cancelledAt = new Date().toISOString();
+      orders[idx].cancelledAt = nowIso;
       orders[idx].cancellationReason = "تم إلغاء الطلب من لوحة الإدارة وإرجاع المخزون";
     }
 
     localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
-    updateOrderInFirebase(orderId, {
+    updateOrderInFirebase(trimmedId, {
       trackingStatus: newStatus,
+      updatedAt: orders[idx].updatedAt,
       cancelledAt: orders[idx].cancelledAt,
       cancellationReason: orders[idx].cancellationReason,
     }).catch((e) => console.warn("Firebase updateOrderStatus error:", e));

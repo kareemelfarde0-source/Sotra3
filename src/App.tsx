@@ -45,6 +45,7 @@ import {
   loadOrders,
   saveOrders,
   STORAGE_KEYS,
+  addMyOrderId,
 } from "./utils/storage";
 import {
   subscribeToFirebaseAdminData,
@@ -196,14 +197,14 @@ export default function App() {
   };
 
   const maxCatalogPrice = useMemo(() => {
-    if (adminData.products.length === 0) return 2000;
-    const prices = adminData.products.map((p) => Number(p.price) || 0);
+    if (!adminData?.products || adminData.products.length === 0) return 2000;
+    const prices = (adminData.products || []).map((p) => Number(p.price) || 0);
     return Math.max(...prices);
-  }, [adminData.products]);
+  }, [adminData?.products]);
 
   // --- Filtered Home Products ---
   const filteredHomeProducts = useMemo(() => {
-    let list = [...adminData.products];
+    let list = [...(adminData?.products || [])];
 
     // Category filter
     if (selectedCategoryId !== "all") {
@@ -398,6 +399,7 @@ export default function App() {
 
   const handleOrderSuccess = (order: Order) => {
     setLastPlacedOrder(order);
+    addMyOrderId(order.orderId);
     const updated = [order, ...orders];
     setOrders(updated);
     saveOrders(updated);
@@ -712,7 +714,6 @@ export default function App() {
                 setCurrentView("home");
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
-              onOpenAdmin={() => setIsAdminPasswordOpen(true)}
               lang={lang}
             />
           )}
@@ -740,7 +741,6 @@ export default function App() {
               setCurrentView("profile");
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
-            onOpenAdmin={() => setIsAdminPasswordOpen(true)}
             lang={lang}
             footerConfig={adminData.footerConfig}
           />
@@ -887,10 +887,6 @@ export default function App() {
           setIsNavMenuOpen(false);
           setCurrentView("search");
           window.scrollTo({ top: 0, behavior: "smooth" });
-        }}
-        onOpenAdmin={() => {
-          setIsNavMenuOpen(false);
-          setIsAdminPasswordOpen(true);
         }}
         lang={lang}
         onToggleLang={() => setLang((prev) => (prev === "ar" ? "en" : "ar"))}

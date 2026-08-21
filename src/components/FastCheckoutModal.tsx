@@ -28,6 +28,7 @@ import {
   saveOrderToFirebase,
   sanitizeImageUrl,
   SOTRA_PRODUCT_PLACEHOLDER,
+  addMyOrderId,
 } from "../utils/storage";
 
 interface FastCheckoutModalProps {
@@ -85,20 +86,25 @@ export const FastCheckoutModal: React.FC<FastCheckoutModalProps> = ({
         const saved = localStorage.getItem(STORAGE_KEYS.PROFILE);
         if (saved) {
           const profile = JSON.parse(saved);
-          setFormData((prev) => ({
-            ...prev,
-            fullName: profile.fullName || prev.fullName,
-            phoneNumber: profile.phoneNumber || prev.phoneNumber,
-            secondaryPhone: profile.secondaryPhone || prev.secondaryPhone,
-            governorateId: profile.governorateId || prev.governorateId,
-            detailedAddress: profile.detailedAddress || prev.detailedAddress,
-            notes: profile.notes || prev.notes,
-            senderPhoneOrInstaPayId: profile.senderPhoneOrInstaPayId || prev.senderPhoneOrInstaPayId,
-          }));
+          if (profile && typeof profile === "object") {
+            setFormData((prev) => ({
+              ...prev,
+              fullName: profile.fullName || prev.fullName,
+              phoneNumber: profile.phoneNumber || prev.phoneNumber,
+              secondaryPhone: profile.secondaryPhone || prev.secondaryPhone,
+              governorateId: profile.governorateId || prev.governorateId,
+              detailedAddress: profile.detailedAddress || prev.detailedAddress,
+              notes: profile.notes || prev.notes,
+              senderPhoneOrInstaPayId: profile.senderPhoneOrInstaPayId || prev.senderPhoneOrInstaPayId,
+            }));
 
-          if (profile.fullName && profile.phoneNumber && profile.detailedAddress && profile.governorateId) {
-            setHasSavedProfile(true);
-            setIsEditingDelivery(false);
+            if (profile.fullName && profile.phoneNumber && profile.detailedAddress && profile.governorateId) {
+              setHasSavedProfile(true);
+              setIsEditingDelivery(false);
+            } else {
+              setHasSavedProfile(false);
+              setIsEditingDelivery(true);
+            }
           } else {
             setHasSavedProfile(false);
             setIsEditingDelivery(true);
@@ -255,6 +261,7 @@ export const FastCheckoutModal: React.FC<FastCheckoutModalProps> = ({
 
     // 3. Save to Firebase Firestore (both Order and Customer Collections)
     try {
+      addMyOrderId(completedOrder.orderId);
       await saveOrderToFirebase(completedOrder);
       await saveCustomerProfileToFirebase(profileToSave, completedOrder);
     } catch (err) {
@@ -298,8 +305,8 @@ export const FastCheckoutModal: React.FC<FastCheckoutModalProps> = ({
                 <span>المجموع: {subtotal.toLocaleString()} ج.م</span>
               </div>
               <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-                {items.map((item) => (
-                  <div key={item.id} className="flex items-center gap-3 bg-white p-2 rounded-xl border border-neutral-200/60">
+                {items.map((item, idx) => (
+                  <div key={`${item.id}-${item.selectedColor?.name || ""}-${item.selectedSize || ""}-${idx}`} className="flex items-center gap-3 bg-white p-2 rounded-xl border border-neutral-200/60">
                     <img
                       src={sanitizeImageUrl(item.selectedColor.image, SOTRA_PRODUCT_PLACEHOLDER)}
                       alt={item.titleAr}

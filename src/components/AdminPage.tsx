@@ -615,15 +615,22 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
   // ORDER STATUS CHANGE & SYNCHRONIZATION
   const handleUpdateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
-    const res = updateOrderStatus(orderId, newStatus);
-    if (res.success) {
+    const res = updateOrderStatus(orderId, newStatus, orders);
+    if (res.success && res.updatedOrders.length > 0) {
       onUpdateOrders(res.updatedOrders);
-      showToast(
-        newStatus === "cancelled"
-          ? "تم إلغاء الطلب وإرجاع المنتجات للمخزون"
-          : `تم تحديث حالة الطلب إلى: ${ORDER_STATUS_FLOW.find((s) => s.status === newStatus)?.labelAr || newStatus}`
+    } else {
+      const fallbackList = orders.map((o) =>
+        o.orderId === orderId ? { ...o, trackingStatus: newStatus, updatedAt: new Date().toISOString() } : o
       );
+      onUpdateOrders(fallbackList);
     }
+
+    const statusObj = ORDER_STATUS_FLOW.find((s) => s.status === newStatus);
+    showToast(
+      newStatus === "cancelled"
+        ? "تم إلغاء الطلب وإرجاع المنتجات للمخزون"
+        : `تم تحديث حالة الطلب إلى: ${statusObj?.labelAr || newStatus}`
+    );
   };
 
   // FIREBASE CLOUD DATABASE CONTROLS (WIPE DEMO DATA / SEED DEMO DATA)
@@ -863,21 +870,21 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                     const q = ordersSearch.toLowerCase();
                     const matchesSearch =
                       !q ||
-                      o.orderId.toLowerCase().includes(q) ||
-                      o.customer.fullName.toLowerCase().includes(q) ||
-                      o.customer.phoneNumber.includes(q) ||
+                      (o.orderId && o.orderId.toLowerCase().includes(q)) ||
+                      (o.customer?.fullName && o.customer.fullName.toLowerCase().includes(q)) ||
+                      (o.customer?.phoneNumber && o.customer.phoneNumber.includes(q)) ||
                       (o.vodafoneSenderPhone && o.vodafoneSenderPhone.includes(q)) ||
                       (o.shippingTransferNumber && o.shippingTransferNumber.includes(q));
                     return matchesFilter && matchesSearch;
                   })
-                  .map((o) => {
+                  .map((o, oIdx) => {
                     const currentStatusObj =
                       ORDER_STATUS_FLOW.find((s) => s.status === o.trackingStatus) || ORDER_STATUS_FLOW[0];
                     const isCancelled = o.trackingStatus === "cancelled";
 
                     return (
                       <div
-                        key={o.orderId}
+                        key={o.orderId || `order-${oIdx}`}
                         className={`p-5 rounded-2xl border bg-white space-y-4 transition-all shadow-xs ${
                           isCancelled ? "border-red-200 bg-red-50/20" : "border-neutral-200"
                         }`}
@@ -900,12 +907,12 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                             <div className="flex items-center gap-3 text-xs text-neutral-700 font-bold flex-wrap">
                               <span className="flex items-center gap-1">
                                 <Phone className="w-3.5 h-3.5 text-neutral-400" />
-                                {o.customer.fullName} ({o.customer.phoneNumber})
+                                {o.customer?.fullName || "عميل"} ({o.customer?.phoneNumber || "بدون هاتف"})
                               </span>
                               <span>•</span>
                               <span className="flex items-center gap-1">
                                 <MapPin className="w-3.5 h-3.5 text-neutral-400" />
-                                {o.governorateNameAr} - {o.customer.detailedAddress}
+                                {o.governorateNameAr || ""} - {o.customer?.detailedAddress || ""}
                               </span>
                             </div>
 
@@ -940,20 +947,20 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
                         {/* Order Items & Totals */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                          {o.items.map((item, idx) => (
-                            <div key={idx} className="flex items-center gap-3 p-2.5 bg-neutral-50 rounded-xl border border-neutral-200">
+                          {(o.items || []).map((item, idx) => (
+                            <div key={`order-item-${item?.id || idx}-${idx}`} className="flex items-center gap-3 p-2.5 bg-neutral-50 rounded-xl border border-neutral-200">
                               <img
-                                src={item.selectedColor.image || SOTRA_PRODUCT_PLACEHOLDER}
-                                alt={item.titleAr}
+                                src={item?.selectedColor?.image || SOTRA_PRODUCT_PLACEHOLDER}
+                                alt={item?.titleAr || item?.title || "Product"}
                                 className="w-12 h-14 object-cover rounded-lg bg-neutral-100 flex-shrink-0"
                               />
                               <div className="min-w-0 flex-1">
-                                <p className="font-bold text-neutral-900 truncate text-xs">{item.titleAr}</p>
+                                <p className="font-bold text-neutral-900 truncate text-xs">{item?.titleAr || item?.title}</p>
                                 <p className="text-[11px] text-neutral-500">
-                                  {item.selectedColor.nameAr} | مقاس: <span className="font-bold">{item.selectedSize}</span> | عدد: <span className="font-bold">{item.quantity}</span>
+                                  {item?.selectedColor?.nameAr || item?.selectedColor?.name || ""} | مقاس: <span className="font-bold">{item?.selectedSize}</span> | عدد: <span className="font-bold">{item?.quantity}</span>
                                 </p>
                                 <p className="text-[11px] font-bold text-neutral-900 font-brand">
-                                  LE {((Number(item.price) || 0) * (Number(item.quantity) || 1)).toFixed(2)}
+                                  LE {((Number(item?.price) || 0) * (Number(item?.quantity) || 1)).toFixed(2)}
                                 </p>
                               </div>
                             </div>
@@ -1054,7 +1061,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {adminData.products
                   .filter((p) => (p.titleAr || p.title).toLowerCase().includes(prodSearch.toLowerCase()))
-                  .map((p) => {
+                  .map((p, idx) => {
                     const offerCat = adminData.offerCategories.find((oc) => oc.id === p.offerCategory);
                     const cat = adminData.categories.find((c) => c.id === p.category);
 
@@ -1062,7 +1069,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
                     return (
                       <div
-                        key={p.id}
+                        key={p.id || `product-${idx}`}
                         className="p-4 bg-white rounded-2xl border border-neutral-200 flex items-center justify-between gap-3 shadow-2xs hover:border-neutral-400 transition-all"
                       >
                         <div className="flex items-center gap-3 min-w-0">
@@ -1180,7 +1187,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {adminData.categories.map((cat, idx) => (
                 <div
-                  key={cat.id}
+                  key={cat.id || `cat-${idx}`}
                   className="p-4 bg-white rounded-2xl border border-neutral-200 flex items-center justify-between shadow-2xs"
                 >
                   <div className="flex items-center gap-3">
@@ -1263,9 +1270,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {adminData.offerCategories.map((oc) => (
+              {adminData.offerCategories.map((oc, idx) => (
                 <div
-                  key={oc.id}
+                  key={oc.id || `oc-${idx}`}
                   className={`p-4 rounded-2xl border bg-white shadow-2xs space-y-3 transition-all ${
                     oc.isVisible === false ? "opacity-60 border-neutral-300 bg-neutral-50" : "border-neutral-200"
                   }`}
@@ -1353,9 +1360,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {adminData.banners.map((b) => (
+              {adminData.banners.map((b, idx) => (
                 <div
-                  key={b.id}
+                  key={b.id || `banner-${idx}`}
                   className="p-4 rounded-2xl border border-neutral-200 bg-white shadow-2xs space-y-3"
                 >
                   <div className="relative h-32 rounded-xl overflow-hidden bg-neutral-900 text-white p-4 flex flex-col justify-end">
@@ -1431,7 +1438,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
             <div className="space-y-3">
               {adminData.products
                 .filter((p) => (p.titleAr || p.title).toLowerCase().includes(invSearch.toLowerCase()))
-                .map((prod) => {
+                .map((prod, idx) => {
                   const colors = prod.colors || [{ name: "عام", nameAr: "عام", hex: "#111" }];
                   const sizes = prod.sizes || ["L"];
                   let totalQty = 0;
@@ -1451,7 +1458,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
                   return (
                     <div
-                      key={prod.id}
+                      key={prod.id || `inv-prod-${idx}`}
                       className="p-4 bg-white rounded-2xl border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
                     >
                       <div className="flex items-center gap-3">
@@ -1525,9 +1532,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {(adminData.coupons || []).map((cp) => (
+              {(adminData.coupons || []).map((cp, idx) => (
                 <div
-                  key={cp.id}
+                  key={cp.id || `coupon-${idx}`}
                   className={`p-4 rounded-2xl border bg-white shadow-2xs space-y-3 ${
                     cp.isActive ? "border-neutral-200" : "border-neutral-300 opacity-60 bg-neutral-50"
                   }`}
@@ -2166,7 +2173,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
                 {/* Quick Presets */}
                 <div className="flex flex-wrap gap-1.5">
-                  {BADGE_OPTIONS.map((b) => {
+                  {BADGE_OPTIONS.map((b, bIdx) => {
                     const isSelected =
                       (!b.type && !editingProduct.badge) ||
                       (b.type && editingProduct.badge?.type === b.type);
@@ -2174,7 +2181,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                     return (
                       <button
                         type="button"
-                        key={b.type}
+                        key={b.type || `badge-opt-${bIdx}`}
                         onClick={() => {
                           if (!b.type) {
                             setEditingProduct({ ...editingProduct, badge: undefined });
@@ -2323,7 +2330,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                 <div className="space-y-2">
                   {(editingProduct.colors || []).map((col, cIdx) => (
                     <div
-                      key={cIdx}
+                      key={`edit-col-${cIdx}`}
                       className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
                     >
                       <div className="flex items-center gap-2">
@@ -2748,19 +2755,19 @@ export const AdminPage: React.FC<AdminPageProps> = ({
             </div>
 
             <div className="space-y-3">
-              {editingInvProduct.colors.map((col) => (
-                <div key={col.nameAr || col.name} className="p-3.5 bg-neutral-50 rounded-xl border border-neutral-200 space-y-2">
+              {(editingInvProduct.colors || []).map((col, cIdx) => (
+                <div key={`inv-modal-col-${col.nameAr || col.name || ""}-${cIdx}`} className="p-3.5 bg-neutral-50 rounded-xl border border-neutral-200 space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="w-3.5 h-3.5 rounded-full border" style={{ backgroundColor: col.hex }} />
                     <span className="text-xs font-black text-neutral-900">{col.nameAr || col.name}</span>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {editingInvProduct.sizes.map((sz) => {
+                    {(editingInvProduct.sizes || []).map((sz, szIdx) => {
                       const k = getInvKey(col.nameAr, col.name, sz);
                       const currentEntry = editingInvProduct.inventory?.[k] || { qty: 10, salePrice: editingInvProduct.price };
                       return (
-                        <div key={sz} className="p-2 bg-white rounded-lg border border-neutral-200">
+                        <div key={`inv-modal-sz-${sz}-${szIdx}`} className="p-2 bg-white rounded-lg border border-neutral-200">
                           <span className="text-[10px] font-bold text-neutral-600 block">مقاس {sz}:</span>
                           <input
                             type="number"

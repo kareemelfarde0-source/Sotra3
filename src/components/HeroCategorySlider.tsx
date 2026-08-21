@@ -12,39 +12,42 @@ interface HeroCategorySliderProps {
 }
 
 export const HeroCategorySlider: React.FC<HeroCategorySliderProps> = ({
-  categories,
+  categories = [],
   selectedCategory,
   onSelectCategory,
   lang,
 }) => {
+  const safeCategories = Array.isArray(categories) ? categories : [];
   const [activeIndex, setActiveIndex] = useState(() => {
-    const idx = categories.findIndex((c) => c.id === selectedCategory);
+    const idx = safeCategories.findIndex((c) => c.id === selectedCategory);
     return idx >= 0 ? idx : 0;
   });
   const [isAutoSpin, setIsAutoSpin] = useState(false);
   const touchStartX = useRef<number | null>(null);
 
   useEffect(() => {
-    const idx = categories.findIndex((c) => c.id === selectedCategory);
+    const idx = safeCategories.findIndex((c) => c.id === selectedCategory);
     if (idx >= 0 && idx !== activeIndex) {
       setActiveIndex(idx);
     }
-  }, [selectedCategory, categories]);
+  }, [selectedCategory, safeCategories]);
 
   useEffect(() => {
-    if (!isAutoSpin || categories.length <= 1) return;
+    if (!isAutoSpin || safeCategories.length <= 1) return;
     const interval = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % categories.length);
+      setActiveIndex((prev) => (prev + 1) % safeCategories.length);
     }, 3500);
     return () => clearInterval(interval);
-  }, [isAutoSpin, categories.length]);
+  }, [isAutoSpin, safeCategories.length]);
 
   const handlePrev = () => {
-    setActiveIndex((prev) => (prev - 1 + categories.length) % categories.length);
+    if (safeCategories.length === 0) return;
+    setActiveIndex((prev) => (prev - 1 + safeCategories.length) % safeCategories.length);
   };
 
   const handleNext = () => {
-    setActiveIndex((prev) => (prev + 1) % categories.length);
+    if (safeCategories.length === 0) return;
+    setActiveIndex((prev) => (prev + 1) % safeCategories.length);
   };
 
   const handleSelectCard = (index: number, catId: string) => {
@@ -118,8 +121,8 @@ export const HeroCategorySlider: React.FC<HeroCategorySliderProps> = ({
         onTouchEnd={handleTouchEnd}
       >
         <div className="relative w-full max-w-4xl h-full flex items-center justify-center">
-          {categories.map((cat, idx) => {
-            const count = categories.length;
+          {safeCategories.map((cat, idx) => {
+            const count = safeCategories.length;
             let offset = idx - activeIndex;
             if (offset > count / 2) offset -= count;
             if (offset < -count / 2) offset += count;
@@ -185,7 +188,7 @@ export const HeroCategorySlider: React.FC<HeroCategorySliderProps> = ({
       </div>
 
       <div className="flex items-center justify-center gap-2 mt-1 mb-6">
-        {categories.map((cat, idx) => (
+        {safeCategories.map((cat, idx) => (
           <button
             key={cat.id}
             onClick={() => handleSelectCard(idx, cat.id)}

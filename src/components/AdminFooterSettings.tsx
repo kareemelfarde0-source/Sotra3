@@ -205,7 +205,7 @@ export const AdminFooterSettings: React.FC<AdminFooterSettingsProps> = ({
           </div>
 
           <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
-            {config.paymentMethods.map((pm, idx) => (
+            {(config.paymentMethods || []).map((pm, idx) => (
               <div
                 key={pm.id || idx}
                 className="p-3 rounded-xl border border-neutral-200 bg-neutral-50 flex items-center gap-2.5"
@@ -273,7 +273,7 @@ export const AdminFooterSettings: React.FC<AdminFooterSettingsProps> = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-          {config.guarantees.map((item, idx) => (
+          {(config.guarantees || []).map((item, idx) => (
             <div
               key={item.id || idx}
               className="p-4 rounded-xl border border-neutral-200 bg-neutral-50 space-y-3 relative group"

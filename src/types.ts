@@ -174,12 +174,14 @@ export interface FooterConfig {
 export interface SplashScreenConfig {
   isEnabled: boolean;
   theme: "white" | "dark";
-  brandName: string;
-  subtitleAr: string;
-  subtitleEn: string;
-  loadingTextAr: string;
-  establishedText: string;
-  logoLetter: string;
+  brandName?: string;
+  subtitleAr?: string;
+  subtitleEn?: string;
+  loadingTextAr?: string;
+  establishedText?: string;
+  logoLetter?: string;
+  customLogoUrl?: string;
+  showOnlyLogo?: boolean; // When true, displays ONLY the pure luxury logo without texts
   minDurationMs: number;
   glowEffect: boolean;
 }
@@ -208,8 +210,8 @@ export interface CustomerProfile {
   governorateNameAr?: string;
   detailedAddress: string;
   notes?: string;
-  paymentMethod: PaymentMethodType;
-  senderPhoneOrInstaPayId: string; // رقم محفظة فودافون أو حساب انستاباي المحول منه
+  paymentMethod?: PaymentMethodType;
+  senderPhoneOrInstaPayId?: string; // رقم محفظة فودافون أو حساب انستاباي المحول منه
   transactionReference?: string; // رقم العملية أو الحوالة
   shippingDepositPaid?: number; // قيمة الشحن المحولة مقدماً
   codRemainingAmount?: number; // المبلغ المطلوب عند الاستلام
@@ -268,11 +270,15 @@ export interface Order {
   vodafoneAmount?: number;
   cancelledAt?: string;
   cancellationReason?: string;
+  updatedAt?: string;
 }
+
+export type PopupAspectRatio = "18:9" | "4:3" | "16:9" | "1:1" | "3:4" | "9:16" | "auto";
 
 export interface PopupBannerConfig {
   isEnabled: boolean;
   imageUrl: string;
+  aspectRatio?: PopupAspectRatio;
   titleAr?: string;
   titleEn?: string;
   subtitleAr?: string;

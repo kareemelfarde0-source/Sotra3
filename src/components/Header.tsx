@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Search, User, ShoppingBag, Shield } from "lucide-react";
+import React, { useRef, useEffect } from "react";
+import { Search, User, ShoppingBag } from "lucide-react";
 
 interface HeaderProps {
   cartCount: number;
@@ -26,16 +26,13 @@ export const Header: React.FC<HeaderProps> = ({
   lang,
   isVisible = true,
 }) => {
-  const [clickCount, setClickCount] = useState(0);
   const clickCountRef = useRef<number>(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Clear timers on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
-      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
     };
   }, []);
 
@@ -49,36 +46,19 @@ export const Header: React.FC<HeaderProps> = ({
 
     clickCountRef.current += 1;
     const current = clickCountRef.current;
-    setClickCount(current);
 
-    // Trigger on 5 or 10 clicks
-    if (current >= 5) {
+    // Trigger ONLY after exactly 10 clicks
+    if (current >= 10) {
       clickCountRef.current = 0;
-      setClickCount(0);
       onOpenAdmin();
     } else {
       if (current === 1) {
         onGoHome?.();
       }
+      // Reset counter after 3.5 seconds of inactivity
       timerRef.current = setTimeout(() => {
         clickCountRef.current = 0;
-        setClickCount(0);
-      }, 3000);
-    }
-  };
-
-  const handleTouchStart = () => {
-    longPressTimerRef.current = setTimeout(() => {
-      clickCountRef.current = 0;
-      setClickCount(0);
-      onOpenAdmin();
-    }, 2500);
-  };
-
-  const handleTouchEnd = () => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
+      }, 3500);
     }
   };
 
@@ -112,17 +92,12 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
 
-        {/* Center: Brand Logo with 5-Click / Long-Press Admin Trigger */}
+        {/* Center: Brand Logo */}
         <div className="flex items-center justify-center relative">
           <button
             id="header-brand-logo"
             onClick={handleLogoClick}
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-            onMouseDown={handleTouchStart}
-            onMouseUp={handleTouchEnd}
             className="flex flex-col items-center group cursor-pointer select-none relative py-1 px-3 rounded-xl hover:bg-neutral-50/80 transition-colors"
-            title={clickCount > 0 ? `نقرة ${clickCount}/5 لفتح لوحة التحكم` : "SOTRA FASHION"}
           >
             <span className="font-brand font-black text-2xl sm:text-[28px] tracking-[0.24em] text-neutral-950 group-hover:scale-[1.02] transition-transform uppercase leading-none">
               SOTRA
@@ -130,14 +105,6 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="text-[9px] sm:text-[10px] font-black tracking-[0.38em] text-[#dc2626] uppercase mt-0.5 group-hover:text-neutral-900 transition-colors">
               FASHION
             </span>
-
-            {/* Click Count Badge Hint */}
-            {clickCount >= 2 && (
-              <span className="absolute -bottom-4 bg-neutral-900 text-amber-400 border border-amber-500/40 text-[9px] font-black px-2 py-0.5 rounded-full shadow-lg flex items-center gap-1 animate-bounce">
-                <Shield className="w-2.5 h-2.5" />
-                {lang === "ar" ? `متبقي ${5 - clickCount} نقرات` : `${5 - clickCount} clicks left`}
-              </span>
-            )}
           </button>
         </div>
 
